@@ -1,2 +1,1 @@
-# pypradana
-Analysis Software for PRad Experiment
+## Analysis Software for PRad Experiment
