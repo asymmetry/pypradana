@@ -31,6 +31,10 @@ class DB():
             [(-3.0, 3.0), (-3.0, 3.0), (-3.0, 3.0)],
             names='min_,max_',
         )
+        self.coarse_e_cut = np.rec.fromrecords(
+            [(-5.0, 5.0), (-5.0, 5.0), (-5.0, 5.0)],
+            names='min_,max_',
+        )
         self.pos_cut = np.array([6.0, 6.0, 6.0])
 
         self.dead_modules = [
@@ -47,6 +51,21 @@ class DB():
             self.ep_theta_cut = 0.7 / 180 * np.pi
             self.ee_theta_cut = 0.7 / 180 * np.pi
 
+            self.dead_module_cut = np.rec.fromrecords(
+                [
+                    (-38.5, 184.5, 30.0),
+                    (75.0, 68.5, 15.0),
+                    (-66.0, -81.0, 15.0),
+                    (25.0, 72.0, 15.0),
+                    (81.0, 10.0, 15.0),
+                ],
+                dtype=[
+                    ('x', np.float32),
+                    ('y', np.float32),
+                    ('r', np.float32),
+                ],
+            )
+
             # load s shape correction
             l0 = np.load(join(db_dir, 's_shape_ep_2gev.npz'))
             l1 = np.load(join(db_dir, 's_shape_ee_2gev.npz'))
@@ -55,6 +74,12 @@ class DB():
                 np.stack((l0['edge_x'], l1['edge_x'])),
                 np.stack((l0['edge_y'], l1['edge_y'])),
             )
+
+            # load gem efficiency with binning
+            l = np.load(join(db_dir, 'gem_eff_with_binning_2gev.npz'))
+            self.gem_eff = l['gem_eff']
+            self.binning = l['binning']
+            self.nbins = len(self.gem_eff)
         else:
             self.is1gev = True
             self.is2gev = False
@@ -62,6 +87,15 @@ class DB():
             self.e_total_cut = 4000
             self.ep_theta_cut = 0.75 / 180 * np.pi
             self.ee_theta_cut = 0.75 / 180 * np.pi
+
+            self.dead_module_cut = np.rec.fromrecords(
+                [(-19.0, 97.0, 15.0)],
+                dtype=[
+                    ('x', np.float32),
+                    ('y', np.float32),
+                    ('r', np.float32),
+                ],
+            )
 
             # load s shape correction
             l0 = np.load(join(db_dir, 's_shape_ep_1gev.npz'))
@@ -71,6 +105,11 @@ class DB():
                 np.stack((l0['edge_x'], l1['edge_x'])),
                 np.stack((l0['edge_y'], l1['edge_y'])),
             )
+
+            l = np.load(join(db_dir, 'gem_eff_with_binning_1gev.npz'))
+            self.gem_eff = l['gem_eff']
+            self.binning = l['binning']
+            self.nbins = len(self.gem_eff)
 
         # load live charge
         r, charge = np.loadtxt(
@@ -127,6 +166,36 @@ class DB():
         for module in self.dead_modules:
             result.append(self.modules[(name == module)])
         self.dead_modules = np.concatenate(result).view(np.recarray)
+
+        # load trigger efficiency
+        self.trigger_eff = np.zeros(
+            2157,
+            dtype=[
+                ('p0', np.float32),
+                ('p1', np.float32),
+                ('p2', np.float32),
+            ],
+        )
+        name, par0, par1, par2 = np.loadtxt(
+            join(db_dir, 'hycal_trgeff_minTime.txt'),
+            dtype=[
+                ('name', np.unicode, 10),
+                ('par0', np.float32),
+                ('par1', np.float32),
+                ('par2', np.float32),
+            ],
+            usecols=(0, 1, 2, 3),
+            unpack=True,
+        )
+        cid = np.char.lstrip(name, 'GW').astype(np.int32)
+        cid[np.char.startswith(name, 'W')] += 1000
+        it = np.nditer(
+            (cid, par0, par1, par2),
+            op_flags=[['readonly'], ['readonly'], ['readonly'], ['readonly']],
+        )
+        for icid, *ipars in it:
+            self.trigger_eff[icid] = (ipars[0], ipars[1], ipars[2])
+        self.trigger_eff = self.trigger_eff.view(np.recarray)
 
     def find_modules(self, x, y):
         from ._tools import _find_modules

@@ -5,7 +5,8 @@ from os.path import splitext
 
 import numpy as np
 
-parser = ap.ArgumentParser(description='extract the s shape correction data')
+parser = ap.ArgumentParser(
+    description='save s shape correction as numpy array')
 parser.add_argument('file', nargs=1, help='s shape correction file')
 
 args = parser.parse_args()

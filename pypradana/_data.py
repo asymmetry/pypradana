@@ -150,6 +150,16 @@ class Data():
 
         print('done!')
 
+    def __add__(self, other):
+        for key, value in vars(self).items():
+            if isinstance(value, np.ndarray):
+                setattr(
+                    self,
+                    key,
+                    np.concatenate((value, getattr(other, key))),
+                )
+        return self
+
     def save(self, filename):
         print('saving data to {} ...... '.format(filename), end='', flush=True)
 
@@ -160,6 +170,11 @@ class Data():
         np.savez_compressed(filename, **array_dict)
 
         print('done!')
+
+    def apply_cut(self, cut):
+        for key, value in vars(self).items():
+            if isinstance(value, np.ndarray):
+                setattr(self, key, value[cut])
 
     def module_e_correction(self):
         from ._tools import _get_module_e_correction
@@ -202,38 +217,34 @@ class Data():
         self.e /= factor
 
     def get_common_cut(self):
+        from ._tools import _not_at_dead_module
+
+        cuts = []
+
         # e total cut
-        cut1 = (self.e_total < self.db.e_total_cut)
+        cuts.append(self.e_total < self.db.e_total_cut)
 
         # outer boundary cut
-        cut2 = ~(self.outer_bound)
+        cuts.append(~(self.outer_bound))
 
-        # dead module cut (use HyCal hits)
+        # dead module cut (use HyCal position)
         cut_size = self.db.dead_module_cut_size
         cut_size *= (
             self.db.dead_modules.size_x + self.db.dead_modules.size_y) / 2
         module_x = self.db.dead_modules.x + self.db.offset.x
         module_y = self.db.dead_modules.y + self.db.offset.y
 
-        def _not_at_dead_module(xx, yy):
-            it = np.nditer(
-                (module_x, module_y, cut_size),
-                op_flags=[['readonly'], ['readonly'], ['readonly']],
-            )
-            for ix, iy, ic in it:
-                if np.sqrt((xx - ix)**2 + (yy - iy)**2) < ic:
-                    return False
-            return True
+        cut0 = _not_at_dead_module(
+            self.x0,
+            self.y0,
+            module_x,
+            module_y,
+            cut_size,
+        )
+        cuts.append(cut0.astype(np.bool))
 
-        vec_not_at_dead_module = np.vectorize(_not_at_dead_module)
-        cut3 = vec_not_at_dead_module(self.x0, self.y0)
-
-        return cut1 & cut2 & cut3
-
-    def get_ep_cut(self):
-        cuts = []
         # cluster size cut
-        cuts.append((self.n_module > 2))
+        cuts.append(self.n_module > 2)
 
         # GEM match cut
         cut0 = self.gem_match
@@ -251,14 +262,35 @@ class Data():
         cut2[self.at_glass] = (delta[self.at_glass] < delta_2[self.at_glass])
         cuts.append(cut0 & cut1 & cut2)
 
-        # only crystal cut
+        # only PbWO4 cut
         # cuts.append((np.abs(self.x) < 342.705) & (np.abs(self.x) < 342.375))
 
         # GEM strip cut (not implemented)
         # cuts.append()
 
+        # module size cut (not implemented)
+        # cuts.append()
+
+        # dead module cut (use GEM position)
+        cut0 = _not_at_dead_module(
+            self.x,
+            self.y,
+            self.db.dead_module_cut.x,
+            self.db.dead_module_cut.x,
+            self.db.dead_module_cut.r,
+        )
+        cuts.append(cut0.astype(np.bool))
+
+        return reduce(np.bitwise_and, cuts)
+
+    def get_ep_cut(self):
+        from ._tools import _not_at_dead_module
+
+        cuts = []
+        cuts.append(self.get_common_cut())
+
         # theta cut
-        cuts.append((self.theta > self.db.ep_theta_cut))
+        cuts.append(self.theta > self.db.ep_theta_cut)
 
         # phi cut (not implemented)
         # cuts.append()
@@ -273,10 +305,36 @@ class Data():
         cut2 = self.db.is_over_flow(self.e, self.id_module)
         cuts.append((cut0 & cut1) | cut2)
 
-        # module size cut (not implemented)
-        # cuts.append()
-
         return reduce(np.bitwise_and, cuts)
 
     def get_ee_cut(self):
-        pass
+        cuts = []
+        cuts.append(self.get_common_cut())
+
+        # theta cut
+        cuts.append((self.theta > self.db.ee_theta_cut))
+
+        # phi cut (not implemented)
+        # cuts.append()
+
+        # energy cut
+        e_elastic = get_elastic_energy(self.e_beam, self.theta, 'electron')
+        e_res = self.db.e_res[self.region]
+        e_res *= e_elastic / np.sqrt(e_elastic / 1000)
+        deviation = self.e - e_elastic
+        cut0 = (deviation > (self.db.ee_e_cut.min_[self.region] * e_res))
+        cut1 = (deviation < (self.db.ee_e_cut.max_[self.region] * e_res))
+        cut2 = self.db.is_over_flow(self.e, self.id_module)
+        cuts.append((cut0 & cut1) | cut2)
+
+        return reduce(np.bitwise_and, cuts)
+
+    def get_trigger_efficiency(self, mode='ep'):
+        if mode == 'ep':
+            eff = self.db.trigger_eff[self.id_module]
+            result = eff.p0 * (1 - np.exp(-eff.p1 * (self.e / 1000) - eff.p2))
+        else:
+            result = None
+
+        result[(result < 0) | (result > 1)] = 1
+        return result

@@ -36,12 +36,12 @@ def get_n_entries(file_):
 for file_ in files:
     run = int(re.findall(r'\D*_(\d+)\D*\.root', file_)[0])
 
-    if exists(join(path, 'data_{}.npz'.format(run))):
-        continue
-
     n = get_n_entries(file_) // 1000000
 
     for i in range(n + 1):
+        if exists(join(path, 'data_{}_{}.npz'.format(run, i + 1))):
+            continue
+
         try:
             data = Data(file_, start=i * 1000000, stop=(i + 1) * 1000000)
             data.module_e_correction()
