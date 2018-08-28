@@ -44,7 +44,7 @@ for file_ in files:
 
         try:
             data = Data(file_, start=i * 1000000, stop=(i + 1) * 1000000)
-            data.module_e_correction()
+            data.correct_module_e()
         except (AttributeError, ValueError):
             continue
 

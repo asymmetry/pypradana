@@ -57,7 +57,7 @@ class Data():
             file_ = TFile(filename, 'READ')
             tree = getattr(file_, 'T')
         else:
-            return
+            raise FileNotFoundError('{} does not exists!'.format(filename))
 
         branches = [
             'EventNumber',
@@ -125,11 +125,11 @@ class Data():
         self.outer_bound = flags[7]  # kOuterBound
 
         # GEM match flag
-        match = loaded['Hit.Match'][mask]
-        matches = {}
-        for i in range(8, 10):
-            matches[i] = (np.bitwise_and(match, int('1' + '0' * i, 2)) != 0)
-        self.gem_match = matches[8] | matches[9]  # kGEM1Match & kGEM2Match
+        # match = loaded['Hit.Match'][mask]
+        # matches = {}
+        # for i in range(8, 10):
+        #     matches[i] = (np.bitwise_and(match, int('1' + '0' * i, 2)) != 0)
+        # self.gem_match = matches[8] | matches[9]  # kGEM1Match & kGEM2Match
 
         self.theta = np.arctan(
             np.sqrt(self.x**2 + self.y**2) / self.db.hycal_z)
@@ -176,7 +176,7 @@ class Data():
             if isinstance(value, np.ndarray):
                 setattr(self, key, value[cut])
 
-    def module_e_correction(self):
+    def correct_module_e(self):
         from ._tools import _get_module_e_correction
 
         e_elastic = get_elastic_energy(self.e_beam, self.theta0, 'proton')
@@ -216,7 +216,8 @@ class Data():
 
         self.e /= factor
 
-    def get_common_cut(self):
+    @property
+    def common_cut(self):
         from ._tools import _not_at_dead_module
 
         cuts = []
@@ -246,22 +247,6 @@ class Data():
         # cluster size cut
         cuts.append(self.n_module > 2)
 
-        # GEM match cut
-        cut0 = self.gem_match
-        cut1 = (np.abs(self.x) <= 520) & (np.abs(self.y) <= 520)
-        delta = np.sqrt((self.x - self.x0)**2 + (self.y - self.y0)**2)
-        cut2 = np.zeros_like(cut0, dtype=np.bool)
-        e = self.e / 1000
-        se = np.sqrt(e)
-        delta_0 = self.db.pos_cut[0]
-        delta_0 *= 2.44436 / se + 0.109709 / e - 0.0176315
-        delta_1 = self.db.pos_cut[1] * (6.5 / se)
-        delta_2 = self.db.pos_cut[2] * (6.5 / se)
-        cut2[self.at_pwo] = (delta[self.at_pwo] < delta_0[self.at_pwo])
-        cut2[self.at_trans] = (delta[self.at_trans] < delta_1[self.at_trans])
-        cut2[self.at_glass] = (delta[self.at_glass] < delta_2[self.at_glass])
-        cuts.append(cut0 & cut1 & cut2)
-
         # only PbWO4 cut
         # cuts.append((np.abs(self.x) < 342.705) & (np.abs(self.x) < 342.375))
 
@@ -271,7 +256,7 @@ class Data():
         # module size cut (not implemented)
         # cuts.append()
 
-        # dead module cut (use GEM position)
+        # virtual dead module cut (use GEM position)
         cut0 = _not_at_dead_module(
             self.x,
             self.y,
@@ -283,51 +268,90 @@ class Data():
 
         return reduce(np.bitwise_and, cuts)
 
-    def get_ep_cut(self):
-        from ._tools import _not_at_dead_module
+    @property
+    def gem_match(self):
+        cut0 = (np.abs(self.x) <= 520) & (np.abs(self.y) <= 520)
 
+        delta = np.sqrt((self.x - self.x0)**2 + (self.y - self.y0)**2)
+        cut1 = np.zeros_like(cut0, dtype=np.bool)
+        e = self.e / 1000
+        se = np.sqrt(e)
+        delta_0 = self.db.pos_cut[0]
+        delta_0 *= 2.44436 / se + 0.109709 / e - 0.0176315
+        delta_1 = self.db.pos_cut[1] * (6.5 / se)
+        delta_2 = self.db.pos_cut[2] * (6.5 / se)
+        cut1[self.at_pwo] = (delta[self.at_pwo] < delta_0[self.at_pwo])
+        cut1[self.at_trans] = (delta[self.at_trans] < delta_1[self.at_trans])
+        cut1[self.at_glass] = (delta[self.at_glass] < delta_2[self.at_glass])
+
+        return cut0 & cut1
+
+    def get_single_arm_cut(self, mode='ep'):
         cuts = []
-        cuts.append(self.get_common_cut())
+        cuts.append(self.common_cut)
+
+        if mode == 'ep':
+            cuts.append(self.gem_match)
+            theta = self.theta
+            theta_cut = self.db.ep_theta_cut
+            e_cut = self.db.ep_e_cut
+            recoil = 'proton'
+        elif mode == 'ee':
+            theta = self.theta
+            theta_cut = self.db.ee_theta_cut
+            e_cut = self.db.ee_e_cut
+            cuts.append(self.gem_match)
+            recoil = 'electron'
+        elif 'ee' in mode and ('hycal' in mode or '0' in mode):
+            theta = self.theta0
+            theta_cut = self.db.ee_theta0_cut
+            e_cut = self.db.loose_ee_e_cut
+            recoil = 'electron'
+        else:
+            raise ValueError('mode must be gem / hycal')
 
         # theta cut
-        cuts.append(self.theta > self.db.ep_theta_cut)
+        cuts.append((theta > theta_cut))
 
         # phi cut (not implemented)
         # cuts.append()
 
         # energy cut
-        e_elastic = get_elastic_energy(self.e_beam, self.theta, 'proton')
+        e_elastic = get_elastic_energy(self.e_beam, theta, recoil)
         e_res = self.db.e_res[self.region]
         e_res *= e_elastic / np.sqrt(e_elastic / 1000)
         deviation = self.e - e_elastic
-        cut0 = (deviation > (self.db.ep_e_cut.min_[self.region] * e_res))
-        cut1 = (deviation < (self.db.ep_e_cut.max_[self.region] * e_res))
+        cut0 = (deviation > (e_cut.min_[self.region] * e_res))
+        cut1 = (deviation < (e_cut.max_[self.region] * e_res))
         cut2 = self.db.is_over_flow(self.e, self.id_module)
         cuts.append((cut0 & cut1) | cut2)
 
         return reduce(np.bitwise_and, cuts)
 
-    def get_ee_cut(self):
-        cuts = []
-        cuts.append(self.get_common_cut())
+    def get_double_arm_cut(self):
+        from ._tools import _get_double_arm_cut
 
-        # theta cut
-        cuts.append((self.theta > self.db.ee_theta_cut))
-
-        # phi cut (not implemented)
-        # cuts.append()
-
-        # energy cut
-        e_elastic = get_elastic_energy(self.e_beam, self.theta, 'electron')
+        e_elastic = get_elastic_energy(self.e_beam, self.theta0, 'electron')
         e_res = self.db.e_res[self.region]
         e_res *= e_elastic / np.sqrt(e_elastic / 1000)
-        deviation = self.e - e_elastic
-        cut0 = (deviation > (self.db.ee_e_cut.min_[self.region] * e_res))
-        cut1 = (deviation < (self.db.ee_e_cut.max_[self.region] * e_res))
-        cut2 = self.db.is_over_flow(self.e, self.id_module)
-        cuts.append((cut0 & cut1) | cut2)
+        e_cut_min = self.db.loose_ee_e_cut.min_[self.region] * e_res
+        e_cut_max = self.db.loose_ee_e_cut.max_[self.region] * e_res
 
-        return reduce(np.bitwise_and, cuts)
+        r0 = np.sqrt(self.x0**2 + self.y0**2)
+
+        cut = _get_double_arm_cut(
+            self.event_number,
+            self.e_beam,
+            self.e,
+            e_cut_min,
+            e_cut_max,
+            self.phi0,
+            r0,
+            np.float32(self.db.coplanerity_cut),
+            np.float32(self.db.hycal_z),
+            np.float32(self.db.vertex_z_cut),
+        )
+        return cut.astype(np.bool)
 
     def get_trigger_efficiency(self, mode='ep'):
         if mode == 'ep':

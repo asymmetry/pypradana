@@ -5,6 +5,8 @@ cimport cython
 
 DTYPE = np.float
 
+cdef float _m_e = 0.5109989461
+
 
 cdef int _find_modules_check(
     float x,
@@ -117,5 +119,62 @@ def _not_at_dead_module(
                 temp = 0
                 break
         result_view[i] = temp
+
+    return result
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def _get_double_arm_cut(
+    int[:] event_number,
+    float[:] e_beam,
+    float[:] e,
+    float[:] e_cut_min,
+    float[:] e_cut_max,
+    float[:] phi,
+    float[:] r,
+    float coplanerity_cut,
+    float hycal_z,
+    float vertex_z_cut,
+):
+    cdef Py_ssize_t data_length = event_number.shape[0]
+
+    result = np.zeros(data_length, dtype=np.intc)
+    cdef int[:] result_view = result
+
+    cdef Py_ssize_t i, j
+    cdef int found_i, found_j
+    cdef float elasticity, elasticity_cut_min, elasticity_cut_max
+    cdef float d_phi
+    cdef float vertex_z
+
+    for i in range(data_length):
+        found_i, found_j = -1, -1
+        for j in range(i + 1, data_length):
+            if event_number[i] != event_number[j]:
+                break
+
+            elasticity = e_beam[i] - (e[i] + e[j])
+            elasticity_cut_min = -np.sqrt(e_cut_min[i]**2 + e_cut_min[j]**2)
+            elasticity_cut_max = np.sqrt(e_cut_max[i]**2 + e_cut_max[j]**2)
+            if (elasticity < elasticity_cut_min
+                    or elasticity > elasticity_cut_max):
+                continue
+
+            d_phi = phi[i] + np.pi - phi[j]
+            if d_phi > np.pi:
+                d_phi -= 2 * np.pi
+            if abs(d_phi) > coplanerity_cut:
+                continue
+
+            vertex_z = np.sqrt(
+                (_m_e * r[i] * r[j] + e_beam[i] * r[i] * r[j]) / 2 / _m_e)
+            if abs(vertex_z - hycal_z) > vertex_z_cut:
+                continue
+
+            found_i, found_j = i, j
+
+        if found_i != -1 and found_j != -1:
+            result_view[found_i] = 1
+            result_view[found_j] = 1
 
     return result

@@ -22,20 +22,20 @@ class DB():
         else:
             db_dir = path
 
-        self.e_res = np.array([0.024, 0.062, 0.062])
+        self.e_res = np.array([0.024, 0.062, 0.062], dtype=np.float32)
         self.ep_e_cut = np.rec.fromrecords(
             [(-3.0, 3.0), (-3.0, 3.0), (-3.0, 3.0)],
-            names='min_,max_',
+            dtype=[('min_', np.float32),
+                   ('max_', np.float32)],
         )
         self.ee_e_cut = np.rec.fromrecords(
             [(-3.0, 3.0), (-3.0, 3.0), (-3.0, 3.0)],
-            names='min_,max_',
+            dtype=[('min_', np.float32),
+                   ('max_', np.float32)],
         )
-        self.coarse_e_cut = np.rec.fromrecords(
-            [(-5.0, 5.0), (-5.0, 5.0), (-5.0, 5.0)],
-            names='min_,max_',
-        )
-        self.pos_cut = np.array([6.0, 6.0, 6.0])
+        self.pos_cut = np.array([6.0, 6.0, 6.0], dtype=np.float32)
+        self.coplanerity_cut = 10 / 180 * np.pi
+        self.vertex_z_cut = 500
 
         self.dead_modules = [
             'W835', 'W891', 'G775', 'G900', 'G486', 'G732', 'W230'
@@ -50,6 +50,13 @@ class DB():
             self.e_total_cut = 16000
             self.ep_theta_cut = 0.7 / 180 * np.pi
             self.ee_theta_cut = 0.7 / 180 * np.pi
+            self.ee_theta0_cut = 0.6 / 180 * np.pi
+
+            self.loose_ee_e_cut = np.rec.fromrecords(
+                [(-6.0, 6.0), (-6.0, 6.0), (-6.0, 6.0)],
+                dtype=[('min_', np.float32),
+                       ('max_', np.float32)],
+            )
 
             self.dead_module_cut = np.rec.fromrecords(
                 [
@@ -87,6 +94,13 @@ class DB():
             self.e_total_cut = 4000
             self.ep_theta_cut = 0.75 / 180 * np.pi
             self.ee_theta_cut = 0.75 / 180 * np.pi
+            self.ee_theta0_cut = 0.6 / 180 * np.pi
+
+            self.loose_ee_e_cut = np.rec.fromrecords(
+                [(-5.0, 5.0), (-5.0, 5.0), (-5.0, 5.0)],
+                dtype=[('min_', np.float32),
+                       ('max_', np.float32)],
+            )
 
             self.dead_module_cut = np.rec.fromrecords(
                 [(-19.0, 97.0, 15.0)],

@@ -28,7 +28,7 @@ for run, file_ in files.items():
     db = DB(run)
     data = Data(file_, database=db)
 
-    cut = data.get_ep_cut()
+    cut = data.get_single_arm_cut('ep')
     data.apply_cut(cut)
 
     data.save(join(path, 'data_{}_ep.npz'.format(run)))
