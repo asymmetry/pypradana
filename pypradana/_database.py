@@ -24,12 +24,12 @@ class DB():
 
         self.e_res = np.array([0.024, 0.062, 0.062], dtype=np.float32)
         self.ep_e_cut = np.rec.fromrecords(
-            [(-3.0, 3.0), (-3.0, 3.0), (-3.0, 3.0)],
+            [(-4.0, 4.0), (-4.0, 4.0), (-4.0, 4.0)],
             dtype=[('min_', np.float32),
                    ('max_', np.float32)],
         )
         self.ee_e_cut = np.rec.fromrecords(
-            [(-3.0, 3.0), (-3.0, 3.0), (-3.0, 3.0)],
+            [(-4.0, 4.0), (-4.0, 4.0), (-4.0, 4.0)],
             dtype=[('min_', np.float32),
                    ('max_', np.float32)],
         )
@@ -59,13 +59,7 @@ class DB():
             )
 
             self.dead_module_cut = np.rec.fromrecords(
-                [
-                    (-38.5, 184.5, 30.0),
-                    (75.0, 68.5, 15.0),
-                    (-66.0, -81.0, 15.0),
-                    (25.0, 72.0, 15.0),
-                    (81.0, 10.0, 15.0),
-                ],
+                [(-19.0, 97.0, 15.0)],
                 dtype=[
                     ('x', np.float32),
                     ('y', np.float32),
@@ -82,11 +76,11 @@ class DB():
                 np.stack((l0['edge_y'], l1['edge_y'])),
             )
 
-            # load gem efficiency with binning
-            l = np.load(join(db_dir, 'gem_eff_with_binning_2gev.npz'))
-            self.gem_eff = l['gem_eff']
-            self.binning = l['binning']
-            self.nbins = len(self.gem_eff)
+            # load gem efficiency
+            l = np.load(join(db_dir, 'gem_efficiency_2gev.npz'))
+            self.gem_eff = l['hist'].astype(np.float32)
+            self.gem_eff_edge = l['edge'].astype(np.float32) / 180 * np.pi
+
         else:
             self.is1gev = True
             self.is2gev = False
@@ -103,7 +97,13 @@ class DB():
             )
 
             self.dead_module_cut = np.rec.fromrecords(
-                [(-19.0, 97.0, 15.0)],
+                [
+                    (-38.5, 184.5, 30.0),
+                    (75.0, 68.5, 15.0),
+                    (-66.0, -81.0, 15.0),
+                    (25.0, 72.0, 15.0),
+                    (81.0, 10.0, 15.0),
+                ],
                 dtype=[
                     ('x', np.float32),
                     ('y', np.float32),
@@ -120,10 +120,10 @@ class DB():
                 np.stack((l0['edge_y'], l1['edge_y'])),
             )
 
-            l = np.load(join(db_dir, 'gem_eff_with_binning_1gev.npz'))
-            self.gem_eff = l['gem_eff']
-            self.binning = l['binning']
-            self.nbins = len(self.gem_eff)
+            # load gem efficiency
+            l = np.load(join(db_dir, 'gem_efficiency_1gev.npz'))
+            self.gem_eff = l['hist'].astype(np.float32)
+            self.gem_eff_edge = l['edge'].astype(np.float32) / 180 * np.pi
 
         # load live charge
         r, charge = np.loadtxt(

@@ -38,8 +38,8 @@ def _find_modules(
     result = np.full(data_length, -1, dtype=np.intc)
     cdef int[:] result_view = result
 
-    cdef int is_inside
     cdef Py_ssize_t i, j
+    cdef int is_inside
 
     for i in range(data_length):
         for j in range(module_length):
@@ -110,6 +110,7 @@ def _not_at_dead_module(
 
     cdef Py_ssize_t i, j
     cdef int temp
+    cdef float distance2
 
     for i in range(data_length):
         temp = 1
@@ -176,5 +177,46 @@ def _get_double_arm_cut(
         if found_i != -1 and found_j != -1:
             result_view[found_i] = 1
             result_view[found_j] = 1
+
+    return result
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def _cal_e_sum(int[:] event_number, float[:] e):
+    cdef Py_ssize_t data_length = event_number.shape[0]
+
+    result = np.zeros(data_length, dtype=np.float32)
+    cdef float[:] result_view = result
+
+    cdef Py_ssize_t i
+    cdef float temp
+
+    for i in range(0, data_length, 2):
+        if event_number[i] != event_number[i + 1]:
+            continue
+
+        temp = e[i] + e[i + 1]
+        result_view[i] = temp
+        result_view[i + 1] = temp
+
+    return result
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def _get_gem_efficiency(float[:] theta, float[:] eff, float[:] edge):
+    cdef Py_ssize_t data_length = theta.shape[0]
+    cdef Py_ssize_t edge_length = edge.shape[0]
+
+    result = np.ones(data_length, dtype=np.float32)
+    cdef float[:] result_view = result
+
+    cdef Py_ssize_t i, j
+    cdef float temp
+
+    for i in range(data_length):
+        for j in range(1, edge_length):
+            if theta[i] < edge[j]:
+                result_view[i] = eff[j - 1]
+                break
 
     return result

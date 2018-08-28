@@ -45,6 +45,16 @@ class Data():
         else:
             raise ValueError('bad filename')
 
+    def __add__(self, other):
+        for key, value in vars(self).items():
+            if isinstance(value, np.ndarray):
+                setattr(
+                    self,
+                    key,
+                    np.concatenate((value, getattr(other, key))),
+                )
+        return self
+
     def _load_root(self, filename, *, start=None, stop=None, **_):
         print('loading {} ...... '.format(filename), end='', flush=True)
 
@@ -150,15 +160,15 @@ class Data():
 
         print('done!')
 
-    def __add__(self, other):
-        for key, value in vars(self).items():
-            if isinstance(value, np.ndarray):
-                setattr(
-                    self,
-                    key,
-                    np.concatenate((value, getattr(other, key))),
-                )
-        return self
+    @property
+    def q2(self, mode='ep'):
+        if mode == 'ep':
+            e_elastic = get_elastic_energy(self.e_beam, self.theta, 'proton')
+            result = 4 * self.e_beam * e_elastic * (np.sin(self.theta / 2))**2
+        elif mode == 'ee':
+            e_elastic = get_elastic_energy(self.e_beam, self.theta, 'electron')
+            result = 4 * self.e_beam * e_elastic * (np.sin(self.theta / 2))**2
+        return result
 
     def save(self, filename):
         print('saving data to {} ...... '.format(filename), end='', flush=True)
@@ -261,7 +271,7 @@ class Data():
             self.x,
             self.y,
             self.db.dead_module_cut.x,
-            self.db.dead_module_cut.x,
+            self.db.dead_module_cut.y,
             self.db.dead_module_cut.r,
         )
         cuts.append(cut0.astype(np.bool))
@@ -297,10 +307,10 @@ class Data():
             e_cut = self.db.ep_e_cut
             recoil = 'proton'
         elif mode == 'ee':
+            cuts.append(self.gem_match)
             theta = self.theta
             theta_cut = self.db.ee_theta_cut
             e_cut = self.db.ee_e_cut
-            cuts.append(self.gem_match)
             recoil = 'electron'
         elif 'ee' in mode and ('hycal' in mode or '0' in mode):
             theta = self.theta0
@@ -323,8 +333,7 @@ class Data():
         deviation = self.e - e_elastic
         cut0 = (deviation > (e_cut.min_[self.region] * e_res))
         cut1 = (deviation < (e_cut.max_[self.region] * e_res))
-        cut2 = self.db.is_over_flow(self.e, self.id_module)
-        cuts.append((cut0 & cut1) | cut2)
+        cuts.append(cut0 & cut1)
 
         return reduce(np.bitwise_and, cuts)
 
@@ -355,10 +364,26 @@ class Data():
 
     def get_trigger_efficiency(self, mode='ep'):
         if mode == 'ep':
-            eff = self.db.trigger_eff[self.id_module]
-            result = eff.p0 * (1 - np.exp(-eff.p1 * (self.e / 1000) - eff.p2))
-        else:
-            result = None
+            e = self.e
+        elif mode == 'ee':
+            from ._tools import _cal_e_sum
+            e = _cal_e_sum(self.event_number, self.e)
+            if not self.e[e == 0].size == 0:
+                raise ArithmeticError(
+                    'energy sum of double arm moller events should not be zero'
+                )
 
+        eff = self.db.trigger_eff[self.id_module]
+        result = eff.p0 * (1 - np.exp(-eff.p1 * (e / 1000) - eff.p2))
         result[(result < 0) | (result > 1)] = 1
+
         return result
+
+    def get_gem_efficiency(self):
+        from ._tools import _get_gem_efficiency
+
+        return _get_gem_efficiency(
+            self.theta,
+            self.db.gem_eff,
+            self.db.gem_eff_edge,
+        )

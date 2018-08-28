@@ -25,7 +25,7 @@ def get_hists(filename):
     return hist[1:], edges[0][1:]
 
 
-gem_eff, binning = get_hists(args.file[0])
+hist, edge = get_hists(args.file[0])
 
 outfile, _ = splitext(args.file[0])
-np.savez_compressed(outfile + '.npz', gem_eff=gem_eff, binning=binning)
+np.savez_compressed(outfile + '.npz', hist=hist, edge=edge)
