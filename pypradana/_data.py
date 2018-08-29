@@ -60,8 +60,8 @@ class Data():
 
         import sys
         sys.argv.append('-b')
-        from root_numpy import tree2array
         from ROOT import TFile
+        from root_numpy import tree2array
 
         if exists(filename):
             file_ = TFile(filename, 'READ')
@@ -131,15 +131,14 @@ class Data():
         self.region = np.zeros_like(flag, dtype=np.int16)
         self.region[self.at_trans] = 1
         self.region[self.at_glass] = 2
-        self.at_pwo = self.at_pwo & (~self.at_trans)
         self.outer_bound = flags[7]  # kOuterBound
 
         # GEM match flag
-        # match = loaded['Hit.Match'][mask]
-        # matches = {}
-        # for i in range(8, 10):
-        #     matches[i] = (np.bitwise_and(match, int('1' + '0' * i, 2)) != 0)
-        # self.gem_match = matches[8] | matches[9]  # kGEM1Match & kGEM2Match
+        match = loaded['Hit.Match'][mask]
+        matches = {}
+        for i in range(8, 10):
+            matches[i] = (np.bitwise_and(match, int('1' + '0' * i, 2)) != 0)
+        self._gem_match = matches[8] | matches[9]  # kGEM1Match & kGEM2Match
 
         self.theta = np.arctan(
             np.sqrt(self.x**2 + self.y**2) / self.db.hycal_z)
@@ -280,21 +279,21 @@ class Data():
 
     @property
     def gem_match(self):
-        cut0 = (np.abs(self.x) <= 520) & (np.abs(self.y) <= 520)
-
+        cut0 = self._gem_match
+        cut1 = (np.abs(self.x) <= 520) & (np.abs(self.y) <= 520)
         delta = np.sqrt((self.x - self.x0)**2 + (self.y - self.y0)**2)
-        cut1 = np.zeros_like(cut0, dtype=np.bool)
+        cut2 = np.zeros_like(cut0, dtype=np.bool)
         e = self.e / 1000
         se = np.sqrt(e)
         delta_0 = self.db.pos_cut[0]
         delta_0 *= 2.44436 / se + 0.109709 / e - 0.0176315
         delta_1 = self.db.pos_cut[1] * (6.5 / se)
         delta_2 = self.db.pos_cut[2] * (6.5 / se)
-        cut1[self.at_pwo] = (delta[self.at_pwo] < delta_0[self.at_pwo])
-        cut1[self.at_trans] = (delta[self.at_trans] < delta_1[self.at_trans])
-        cut1[self.at_glass] = (delta[self.at_glass] < delta_2[self.at_glass])
+        cut2[self.at_pwo] = (delta[self.at_pwo] < delta_0[self.at_pwo])
+        cut2[self.at_glass] = (delta[self.at_glass] < delta_2[self.at_glass])
+        cut2[self.at_trans] = (delta[self.at_trans] < delta_1[self.at_trans])
 
-        return cut0 & cut1
+        return cut0 & cut1 & cut2
 
     def get_single_arm_cut(self, mode='ep'):
         cuts = []

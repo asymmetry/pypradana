@@ -1,9 +1,10 @@
 # Author: Chao Gu, 2018
 
-import re
 from os.path import exists, splitext
 
 import numpy as np
+
+from ._database import DB
 
 __all__ = ['SimFile']
 
@@ -23,30 +24,72 @@ class SimFile():
         loaded.
     """
 
-    def __init__(self, filename, *args, **kwargs):
+    def __init__(self, filename, *, database=None, **kwargs):
+        if database is None:
+            self.db = DB(1415)
+        else:
+            self.db = database
+
         _, ext = splitext(filename)
         if ext == '.root':
-            self.run = int(re.findall(r'\D*_(\d+)\D*\.root', filename)[0])
-            self._load_root(filename, *args, **kwargs)
+            self._load_root(filename, **kwargs)
         elif ext == '.npz':
-            self.run = int(re.findall(r'\D*_(\d+)\D*\.npz', filename)[0])
-            self._load_numpy(filename, *args, **kwargs)
+            self._load_numpy(filename)
         else:
             raise ValueError('bad filename')
 
+    def __add__(self, other):
+        for key, value in vars(self).items():
+            if isinstance(value, np.ndarray):
+                setattr(
+                    self,
+                    key,
+                    np.concatenate((value, getattr(other, key))),
+                )
+        return self
+
     def _load_root(self, filename, **kwargs):
+        print('loading {} ...... '.format(filename), end='', flush=True)
+
         import sys
-        argv_save = sys.argv
-        sys.argv = ['-b', '-n']
-        from root_numpy import tree2array
+        sys.argv.append('-b')
         from ROOT import TFile
-        sys.argv = argv_save
+        from root_numpy import tree2array
 
         if exists(filename):
             file_ = TFile(filename, 'READ')
-            tree = getattr(file_, 'T')
+            tree1 = getattr(file_, 'T')
+            tree2 = tree1
         else:
-            return
+            basename, ext = splitext(filename)
+            if (exists(basename + '_rec' + ext)
+                    and exists(basename + '_red' + ext)):
+                file1 = TFile(basename + '_rec' + ext, 'READ')
+                file2 = TFile(basename + '_red' + ext, 'READ')
+                tree1 = getattr(file1, 'T')
+                tree2 = getattr(file2, 'T')
+            else:
+                raise FileNotFoundError('{} does not exists!'.format(filename))
+
+        branches = [
+            'EventNumber',
+            'EBeam',
+            'TotalE',
+            ('Hit.Flag', 0, 100),
+            ('Hit.Match', 0, 100),
+            ('Hit.X', 0, 100),
+            ('Hit.Y', 0, 100),
+            ('Hit.Z', 0, 100),
+            ('Hit.X1', 0, 100),
+            ('Hit.Y1', 0, 100),
+            ('Hit.Z1', 0, 100),
+            ('Hit.E', 0, 100),
+            ('Hit.NModule', 0, 100),
+            ('Hit.CID', 0, 100),
+            ('Hit.GEM.X', 0, 100),
+            ('Hit.GEM.Y', 0, 100),
+            ('Hit.GEM.Z', 0, 100),
+        ]
 
     def _load_numpy(self, filename):
         loaded = np.load(filename)
