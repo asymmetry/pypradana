@@ -43,7 +43,7 @@ class Data():
         elif ext == '.npz':
             self._load_numpy(filename)
         else:
-            raise ValueError('bad filename')
+            raise FileNotFoundError('{} does not exists!'.format(filename))
 
     def __add__(self, other):
         for key, value in vars(self).items():
@@ -202,9 +202,9 @@ class Data():
         t_cut = 2.5 / 180 * np.pi
         e_cut = e_elastic + cut_size * e_cut
         correct_type[(self.theta0 < t_cut) & (self.e <= e_cut)] = 1
-        if self.db.is1gev:
+        if self.db.beam_type == '1gev':
             correct_type[(self.theta0 >= t_cut) & (self.e < 600)] = 1
-        elif self.db.is2gev:
+        elif self.db.beam_type == '2gev':
             correct_type[(self.theta0 >= t_cut) & (self.e < 1500)] = 1
 
         # find module and calculate correction
@@ -238,7 +238,7 @@ class Data():
         cuts.append(~(self.outer_bound))
 
         # dead module cut (use HyCal position)
-        cut_size = self.db.dead_module_cut_size
+        cut_size = self.db.dead_module_cut
         cut_size *= (
             self.db.dead_modules.size_x + self.db.dead_modules.size_y) / 2
         module_x = self.db.dead_modules.x + self.db.offset.x
@@ -252,6 +252,14 @@ class Data():
             cut_size,
         )
         cuts.append(cut0.astype(np.bool))
+
+        return reduce(np.bitwise_and, cuts)
+
+    @property
+    def single_arm_common_cut(self):
+        from ._tools import _not_at_dead_module
+
+        cuts = []
 
         # cluster size cut
         cuts.append(self.n_module > 2)
@@ -269,9 +277,9 @@ class Data():
         cut0 = _not_at_dead_module(
             self.x,
             self.y,
-            self.db.dead_module_cut.x,
-            self.db.dead_module_cut.y,
-            self.db.dead_module_cut.r,
+            self.db.virtual_dead_modules.x,
+            self.db.virtual_dead_modules.y,
+            self.db.virtual_dead_modules.r,
         )
         cuts.append(cut0.astype(np.bool))
 
@@ -285,10 +293,10 @@ class Data():
         cut2 = np.zeros_like(cut0, dtype=np.bool)
         e = self.e / 1000
         se = np.sqrt(e)
-        delta_0 = self.db.pos_cut[0]
+        delta_0 = self.db.gem_match_cut[0]
         delta_0 *= 2.44436 / se + 0.109709 / e - 0.0176315
-        delta_1 = self.db.pos_cut[1] * (6.5 / se)
-        delta_2 = self.db.pos_cut[2] * (6.5 / se)
+        delta_1 = self.db.gem_match_cut[1] * (6.5 / se)
+        delta_2 = self.db.gem_match_cut[2] * (6.5 / se)
         cut2[self.at_pwo] = (delta[self.at_pwo] < delta_0[self.at_pwo])
         cut2[self.at_glass] = (delta[self.at_glass] < delta_2[self.at_glass])
         cut2[self.at_trans] = (delta[self.at_trans] < delta_1[self.at_trans])
@@ -300,12 +308,14 @@ class Data():
         cuts.append(self.common_cut)
 
         if mode == 'ep':
+            cuts.append(self.single_arm_common_cut)
             cuts.append(self.gem_match)
             theta = self.theta
             theta_cut = self.db.ep_theta_cut
             e_cut = self.db.ep_e_cut
             recoil = 'proton'
         elif mode == 'ee':
+            cuts.append(self.single_arm_common_cut)
             cuts.append(self.gem_match)
             theta = self.theta
             theta_cut = self.db.ee_theta_cut
@@ -313,8 +323,8 @@ class Data():
             recoil = 'electron'
         elif 'ee' in mode and ('hycal' in mode or '0' in mode):
             theta = self.theta0
-            theta_cut = self.db.ee_theta0_cut
-            e_cut = self.db.loose_ee_e_cut
+            theta_cut = self.db.ee2_theta0_cut
+            e_cut = self.db.ee2_e_cut
             recoil = 'electron'
         else:
             raise ValueError('mode must be gem / hycal')
@@ -342,8 +352,8 @@ class Data():
         e_elastic = get_elastic_energy(self.e_beam, self.theta0, 'electron')
         e_res = self.db.e_res[self.region]
         e_res *= e_elastic / np.sqrt(e_elastic / 1000)
-        e_cut_min = self.db.loose_ee_e_cut.min_[self.region] * e_res
-        e_cut_max = self.db.loose_ee_e_cut.max_[self.region] * e_res
+        e_cut_min = self.db.ee2_e_cut.min_[self.region] * e_res
+        e_cut_max = self.db.ee2_e_cut.max_[self.region] * e_res
 
         r0 = np.sqrt(self.x0**2 + self.y0**2)
 
@@ -362,19 +372,20 @@ class Data():
         return cut.astype(np.bool)
 
     def get_trigger_efficiency(self, mode='ep'):
-        if mode == 'ep':
-            e = self.e
-        elif mode == 'ee':
-            from ._tools import _cal_e_sum
-            e = _cal_e_sum(self.event_number, self.e)
-            if not self.e[e == 0].size == 0:
-                raise ArithmeticError(
-                    'energy sum of double arm moller events should not be zero'
-                )
-
         eff = self.db.trigger_eff[self.id_module]
-        result = eff.p0 * (1 - np.exp(-eff.p1 * (e / 1000) - eff.p2))
-        result[(result < 0) | (result > 1)] = 1
+
+        if mode == 'ep':
+            result = eff.p0 * (1 - np.exp(-eff.p1 * (self.e / 1000) - eff.p2))
+            result[(result < 0) | (result > 1)] = 1
+        elif mode == 'ee':
+            e_sum = np.zeros_like(self.e, dtype=np.float32)
+            e_sum[::2] = self.e[::2] + self.e[1::2]
+            e_sum[1::2] = e_sum[::2]
+            temp = eff.p0 * (1 - np.exp(-eff.p1 * (e_sum / 1000) - eff.p2))
+            result = np.zeros_like(temp, dtype=np.float32)
+            result[::2] = (temp[::2] * self.e[::2] +
+                           temp[1::2] * self.e[1::2]) / e_sum[::2]
+            result[1::2] = result[::2]
 
         return result
 

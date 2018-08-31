@@ -147,11 +147,14 @@ def _get_double_arm_cut(
     cdef float elasticity, elasticity_cut_min, elasticity_cut_max
     cdef float d_phi
     cdef float vertex_z
+    cdef float elasticity_save
 
+    elasticity_save = 1e+6
     for i in range(data_length):
         found_i, found_j = -1, -1
         for j in range(i + 1, data_length):
             if event_number[i] != event_number[j]:
+                elasticity_save = 1e+6
                 break
 
             elasticity = e_beam[i] - (e[i] + e[j])
@@ -172,32 +175,13 @@ def _get_double_arm_cut(
             if abs(vertex_z - hycal_z) > vertex_z_cut:
                 continue
 
-            found_i, found_j = i, j
+            if abs(elasticity / elasticity_cut_max) < elasticity_save:
+                found_i, found_j = i, j
+                elasticity_save = abs(elasticity)
 
         if found_i != -1 and found_j != -1:
             result_view[found_i] = 1
             result_view[found_j] = 1
-
-    return result
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-def _cal_e_sum(int[:] event_number, float[:] e):
-    cdef Py_ssize_t data_length = event_number.shape[0]
-
-    result = np.zeros(data_length, dtype=np.float32)
-    cdef float[:] result_view = result
-
-    cdef Py_ssize_t i
-    cdef float temp
-
-    for i in range(0, data_length, 2):
-        if event_number[i] != event_number[i + 1]:
-            continue
-
-        temp = e[i] + e[i + 1]
-        result_view[i] = temp
-        result_view[i + 1] = temp
 
     return result
 
