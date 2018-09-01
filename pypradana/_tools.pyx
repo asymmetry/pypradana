@@ -3,18 +3,24 @@
 import numpy as np
 cimport cython
 
-DTYPE = np.float
+ctypedef fused int_type:
+    int
+    long
 
-cdef float _m_e = 0.5109989461
+ctypedef fused float_type:
+    float
+    double
+
+cdef double _m_e = 0.5109989461
 
 
-cdef int _find_modules_check(
-    float x,
-    float y,
-    float module_x,
-    float module_y,
-    float module_size_x,
-    float module_size_y,
+cdef long _find_modules_check(
+    double x,
+    double y,
+    double module_x,
+    double module_y,
+    double module_size_x,
+    double module_size_y,
 ):
     if ((abs(x - module_x) < module_size_x / 2)
             and (abs(y - module_y) < module_size_y / 2)):
@@ -25,8 +31,8 @@ cdef int _find_modules_check(
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def _find_modules(
-    float[:] x,
-    float[:] y,
+    float_type[:] x,
+    float_type[:] y,
     float[:] module_x,
     float[:] module_y,
     float[:] module_size_x,
@@ -35,11 +41,11 @@ def _find_modules(
     cdef Py_ssize_t data_length = x.shape[0]
     cdef Py_ssize_t module_length = module_x.shape[0]
 
-    result = np.full(data_length, -1, dtype=np.intc)
-    cdef int[:] result_view = result
+    result = np.full(data_length, -1, dtype=np.int64)
+    cdef long[:] result_view = result
 
     cdef Py_ssize_t i, j
-    cdef int is_inside
+    cdef long is_inside
 
     for i in range(data_length):
         for j in range(module_length):
@@ -61,10 +67,10 @@ def _find_modules(
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def _get_module_e_correction(
-    float[:] x,
-    float[:] y,
-    int[:] id_,
-    int[:] type_,
+    float_type[:] x,
+    float_type[:] y,
+    int_type[:] id_,
+    int_type[:] type_,
     float[:, :, :, :] histogram,
     float[:, :, :] edge_x,
     float[:, :, :] edge_y,
@@ -72,11 +78,11 @@ def _get_module_e_correction(
     cdef Py_ssize_t data_length = x.shape[0]
     cdef Py_ssize_t bins = edge_x.shape[2]
 
-    result = np.full(data_length, -1, dtype=np.float32)
-    cdef float[:] result_view = result
+    result = np.full(data_length, -1, dtype=np.double)
+    cdef double[:] result_view = result
 
     cdef Py_ssize_t i, j
-    cdef int x_bin, y_bin
+    cdef long x_bin, y_bin
 
     for i in range(data_length):
         x_bin, y_bin = 0, 0
@@ -96,8 +102,8 @@ def _get_module_e_correction(
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def _not_at_dead_module(
-    float[:] x,
-    float[:] y,
+    float_type[:] x,
+    float_type[:] y,
     float[:] module_x,
     float[:] module_y,
     float[:] cut_size,
@@ -105,12 +111,12 @@ def _not_at_dead_module(
     cdef Py_ssize_t data_length = x.shape[0]
     cdef Py_ssize_t module_length = module_x.shape[0]
 
-    result = np.ones(data_length, dtype=np.intc)
-    cdef int[:] result_view = result
+    result = np.ones(data_length, dtype=np.int64)
+    cdef long[:] result_view = result
 
     cdef Py_ssize_t i, j
-    cdef int temp
-    cdef float distance2
+    cdef long temp
+    cdef double distance2
 
     for i in range(data_length):
         temp = 1
@@ -123,31 +129,32 @@ def _not_at_dead_module(
 
     return result
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def _get_double_arm_cut(
-    int[:] event_number,
-    float[:] e_beam,
-    float[:] e,
-    float[:] e_cut_min,
-    float[:] e_cut_max,
-    float[:] phi,
-    float[:] r,
+    int_type[:] event_number,
+    float_type[:] e_beam,
+    float_type[:] e,
+    float_type[:] e_cut_min,
+    float_type[:] e_cut_max,
+    float_type[:] phi,
+    float_type[:] r,
     float coplanerity_cut,
     float hycal_z,
     float vertex_z_cut,
 ):
     cdef Py_ssize_t data_length = event_number.shape[0]
 
-    result = np.zeros(data_length, dtype=np.intc)
-    cdef int[:] result_view = result
+    result = np.zeros(data_length, dtype=np.int64)
+    cdef long[:] result_view = result
 
     cdef Py_ssize_t i, j
-    cdef int found_i, found_j
-    cdef float elasticity, elasticity_cut_min, elasticity_cut_max
-    cdef float d_phi
-    cdef float vertex_z
-    cdef float elasticity_save
+    cdef long found_i, found_j
+    cdef double elasticity, elasticity_cut_min, elasticity_cut_max
+    cdef double d_phi
+    cdef double vertex_z
+    cdef double elasticity_save
 
     elasticity_save = 1e+6
     for i in range(data_length):
@@ -185,22 +192,112 @@ def _get_double_arm_cut(
 
     return result
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def _get_gem_efficiency(float[:] theta, float[:] eff, float[:] edge):
+def _get_gem_efficiency(
+    float_type[:] theta,
+    float[:] eff,
+    float[:] edge,
+):
     cdef Py_ssize_t data_length = theta.shape[0]
     cdef Py_ssize_t edge_length = edge.shape[0]
 
-    result = np.ones(data_length, dtype=np.float32)
-    cdef float[:] result_view = result
+    result = np.ones(data_length, dtype=np.double)
+    cdef double[:] result_view = result
 
     cdef Py_ssize_t i, j
-    cdef float temp
+    cdef double temp
 
     for i in range(data_length):
         for j in range(1, edge_length):
             if theta[i] < edge[j]:
                 result_view[i] = eff[j - 1]
                 break
+
+    return result
+
+
+cdef long _is_inside_gem_spacers_check(double x, double y):
+    if (abs(x - 161.55) < 1.5 or abs(x - 344.45) < 1.5 or abs(y + 409.3) < 1.5
+            or abs(y + 204) < 1.5 or abs (y) < 1.5 or abs(y - 204) < 1.5
+            or abs(y - 409.3) < 1.5):
+        return 1
+    return 0
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def _is_inside_gem_spacers(
+    float_type[:] gem_x,
+    float_type[:] gem_y,
+):
+    cdef Py_ssize_t data_length = gem_x.shape[0]
+
+    result = np.zeros(data_length, dtype=np.int64)
+    cdef long[:] result_view = result
+
+    cdef Py_ssize_t i
+    cdef double x, y
+
+    for i in range(data_length):
+        if gem_x[i] > 0:
+            x = 0.918772774 * gem_x[i]
+            y = 0.918772774 * gem_y[i]
+
+            result_view[i] = _is_inside_gem_spacers_check(x, y)
+        else:
+            x = 0.925798253 * gem_x[i]
+            y = 0.925798253 * gem_y[i]
+
+            result_view[i] = _is_inside_gem_spacers_check(-x, y)
+
+    return result
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def _match_hits(
+    int_type[:] hycal_event_number,
+    float_type[:] hycal_x,
+    float_type[:] hycal_y,
+    int_type[:] gem_event_number,
+    float_type[:] gem_x,
+    float_type[:] gem_y,
+    float_type[:] cut,
+):
+    cdef Py_ssize_t data_length = hycal_event_number.shape[0]
+
+    result = np.zeros(data_length, dtype=np.int64)
+    used = np.zeros(data_length, dtype=np.int64)
+    cdef long[:] result_view = result
+    cdef long[:] used_view = used
+
+    cdef Py_ssize_t i, j, k
+    cdef double distance2, min_distance2
+    cdef long found
+
+    for i in range(data_length):
+        k = 0
+        while hycal_event_number[i] != gem_event_number[k] and k < data_length:
+            k += 1
+
+        min_distance2 = 1e12
+        found = -1
+        for j in range(k, data_length):
+            if hycal_event_number[i] != gem_event_number[j]:
+                break
+
+            if used_view[j] == 1:
+                continue
+
+            distance2 = (hycal_x[i] - gem_x[j])**2 + (hycal_y[i] - gem_y[j])**2
+            if distance2 < cut[i]**2 and distance2 < min_distance2:
+                min_distance2 = distance2
+                found = j
+
+        result_view[i] = found
+        if found >= 0:
+            used_view[found] = 1
 
     return result

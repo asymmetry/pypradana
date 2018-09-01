@@ -99,10 +99,8 @@ class Data():
         self.e_total = loaded['TotalE']
 
         # broadcast event_number, e_beam, e_total to the same shape of hit
-        broadcast = lambda x: np.broadcast_to(
-            np.expand_dims(x, axis=1),
-            flag.shape,
-        )
+        b_shape = flag.shape
+        broadcast = lambda x: np.broadcast_to(x[:, np.newaxis], b_shape)
         self.event_number = (broadcast(self.event_number))[mask]
         self.e_beam = (broadcast(self.e_beam))[mask]
         self.e_total = (broadcast(self.e_total))[mask]
@@ -140,6 +138,7 @@ class Data():
             matches[i] = (np.bitwise_and(match, int('1' + '0' * i, 2)) != 0)
         self._gem_match = matches[8] | matches[9]  # kGEM1Match & kGEM2Match
 
+        # calculate angles
         self.theta = np.arctan(
             np.sqrt(self.x**2 + self.y**2) / self.db.hycal_z)
         self.phi = np.arctan2(self.y, self.x)
@@ -351,7 +350,7 @@ class Data():
 
         e_elastic = get_elastic_energy(self.e_beam, self.theta0, 'electron')
         e_res = self.db.e_res[self.region]
-        e_res *= e_elastic / np.sqrt(e_elastic / 1000)
+        e_res = e_res * e_elastic / np.sqrt(e_elastic / 1000)
         e_cut_min = self.db.ee2_e_cut.min_[self.region] * e_res
         e_cut_max = self.db.ee2_e_cut.max_[self.region] * e_res
 

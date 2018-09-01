@@ -32,6 +32,8 @@ class DB():
                 self.beam_type = '1gev'
             data_type = 'data'
 
+        self.hycal_z = 5642.32
+
         self.e_res = np.array([0.024, 0.062, 0.062], dtype=np.float32)
 
         self.e_total_cut = 4000 if self.beam_type == '1gev' else 16000
@@ -99,8 +101,6 @@ class DB():
             self._init_sim()
 
     def _init_data(self):
-        self.hycal_z = 5642.32
-
         self._load_live_charge()
         self._load_hycal_offsets()
         self._load_s_shape_corrections()
@@ -108,10 +108,18 @@ class DB():
         self._load_gem_efficiency()
 
     def _init_sim(self):
+        self.target_center = -3000 + 89
+
+        self.e_dep_cut = 10
+        self.gem_res = 0.1
+
+        Offset = namedtuple('Offset', ['x', 'y'])
         if self.beam_type == '1gev':
             self.e_beam = 1099.65
+            self.offset = Offset(0.89712, 1.45704)
         elif self.beam_type == '2gev':
             self.e_beam = 2142
+            self.offset = Offset(0.607247, 1.34611)
 
     def _load_live_charge(self):
         r, charge = np.loadtxt(
