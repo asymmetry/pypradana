@@ -110,7 +110,7 @@ class SimFile(Data):
         self.event_number = broadcast(np.arange(1, n_entries + 1))[indices]
         self.e_dep = broadcast(loaded2['HC.TotalEdep'])[indices]
 
-        self.e = self.e[indices]
+        self.e = self.e[mask1]
 
         # add the offsets to coordinates
         self.x0 += self.db.offset.x

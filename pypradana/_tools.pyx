@@ -266,26 +266,30 @@ def _match_hits(
     float_type[:] gem_y,
     float_type[:] cut,
 ):
-    cdef Py_ssize_t data_length = hycal_event_number.shape[0]
+    cdef Py_ssize_t hycal_data_length = hycal_event_number.shape[0]
+    cdef Py_ssize_t gem_data_length = gem_event_number.shape[0]
 
-    result = np.zeros(data_length, dtype=np.int64)
-    used = np.zeros(data_length, dtype=np.int64)
+    result = np.zeros(hycal_data_length, dtype=np.int64)
+    used = np.zeros(gem_data_length, dtype=np.int64)
     cdef long[:] result_view = result
     cdef long[:] used_view = used
 
-    cdef Py_ssize_t i, j, k
+    cdef Py_ssize_t i, j
+    cdef Py_ssize_t j_start, j_start_new, i_prev
     cdef double distance2, min_distance2
     cdef long found
 
-    for i in range(data_length):
-        k = 0
-        while hycal_event_number[i] != gem_event_number[k] and k < data_length:
-            k += 1
+    j_start, j_start_new, i_prev = 0, 0, 0
+    for i in range(hycal_data_length):
+        if hycal_event_number[i] != hycal_event_number[i_prev]:
+            j_start = j_start_new
+            i_prev = i
 
         min_distance2 = 1e12
         found = -1
-        for j in range(k, data_length):
+        for j in range(j_start, gem_data_length):
             if hycal_event_number[i] != gem_event_number[j]:
+                j_start_new = j
                 break
 
             if used_view[j] == 1:

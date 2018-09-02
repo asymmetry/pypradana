@@ -37,7 +37,7 @@ for run, file_ in files.items():
 
     try:
         db = DB(energy)
-        data = SimFile(file_)
+        data = SimFile(file_, database=db)
     except (AttributeError, ValueError):
         continue
 
