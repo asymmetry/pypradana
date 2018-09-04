@@ -110,7 +110,8 @@ class DB():
     def _init_sim(self):
         self.target_center = -3000 + 89
 
-        self.e_dep_cut = 10
+        self.e_dep_cut = 100
+        self.hit_e_cut = 10
         self.gem_res = 0.1
 
         Offset = namedtuple('Offset', ['x', 'y'])

@@ -134,7 +134,7 @@ class SimFile(Data):
         # smear GEM variables
         self.x *= -1
         self.x += np.random.normal(scale=self.db.gem_res, size=self.x.size)
-        self.y += np.random.normal(scale=self.db.gem_res, size=self.x.size)
+        self.y += np.random.normal(scale=self.db.gem_res, size=self.y.size)
 
         # project HyCal coordinates
         factor = self.db.hycal_z / (self.z0 - self.db.target_center)
@@ -147,10 +147,10 @@ class SimFile(Data):
         self.y *= factor
 
         # remove GEM spacers
-        cut = _is_inside_gem_spacers(self.x, self.y)
-        cut = cut.astype(np.bool)
-        self.x[cut] = -9999
-        self.y[cut] = -9999
+        # cut = _is_inside_gem_spacers(self.x, self.y)
+        # cut = cut.astype(np.bool)
+        # self.x[cut] = -9999
+        # self.y[cut] = -9999
 
         # match GEM with HyCal
         cut_size = self.db.gem_match_cut[self.region]
@@ -198,6 +198,7 @@ class SimFile(Data):
 
         # e dep cut
         cuts.append(self.e_dep > self.db.e_dep_cut)
+        cuts.append(self.e > self.db.hit_e_cut)
 
         # outer boundary cut
         cuts.append(~(self.outer_bound))
