@@ -175,6 +175,7 @@ class SimFile(Data):
         self._gem_match = (indices >= 0)
         self.x = np.where(self._gem_match, self.x[indices], 0)
         self.y = np.where(self._gem_match, self.y[indices], 0)
+        self.z = np.where(self._gem_match, self.z[indices], 0)
 
         self.e_beam = np.full_like(self.e, self.db.e_beam)
 

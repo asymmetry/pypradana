@@ -288,11 +288,12 @@ def _match_hits(
         min_distance2 = 1e12
         found = -1
         for j in range(j_start, gem_data_length):
-            if hycal_event_number[i] != gem_event_number[j]:
+            if hycal_event_number[i] < gem_event_number[j]:
                 j_start_new = j
                 break
 
-            if used_view[j] == 1:
+            if (hycal_event_number[i] > gem_event_number[j]
+                    or used_view[j] == 1):
                 continue
 
             distance2 = (hycal_x[i] - gem_x[j])**2 + (hycal_y[i] - gem_y[j])**2
