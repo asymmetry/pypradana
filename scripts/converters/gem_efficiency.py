@@ -18,14 +18,16 @@ def get_hists(filename):
     from root_numpy import hist2array
 
     f = TFile(filename, 'READ')
-    h = f.Get('gem_efficiency_ep')
+    h_ep = f.Get('gem_efficiency_ep')
+    h_ee = f.Get('gem_efficiency_ee')
 
-    hist, edges = hist2array(h, return_edges=True)
+    hist_ep, edges = hist2array(h_ep, return_edges=True)
+    hist_ee, edges = hist2array(h_ee, return_edges=True)
 
-    return hist[1:], edges[0][1:]
+    return hist_ep[1:], hist_ee[1:], edges[0][1:]
 
 
-hist, edge = get_hists(args.file[0])
+hist_ep, hist_ee, edge = get_hists(args.file[0])
 
 outfile, _ = splitext(args.file[0])
-np.savez_compressed(outfile + '.npz', hist=hist, edge=edge)
+np.savez_compressed(outfile + '.npz', ep=hist_ep, ee=hist_ee, edge=edge)

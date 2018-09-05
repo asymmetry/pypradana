@@ -26,12 +26,12 @@ def get_elastic_energy(e, theta, select):
     return result
 
 
-def get_gem_efficiency(theta, energy):
+def get_gem_efficiency(theta, energy='1gev', data='data', mode='ep'):
     from ._tools import _get_gem_efficiency
 
     path = join(dirname(realpath(__file__)), 'database')
-    l = np.load(join(path, 'gem_efficiency_{}.npz'.format(energy)))
-    hist = l['hist'].astype(np.float32)
+    l = np.load(join(path, 'gem_eff_{}_{}.npz'.format(data, energy)))
+    hist = l[mode].astype(np.float32)
     edge = l['edge'].astype(np.float32) / 180 * np.pi
 
     return _get_gem_efficiency(theta, hist, edge)
