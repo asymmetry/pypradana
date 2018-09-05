@@ -1,7 +1,11 @@
 # Author: Chao Gu, 2018
 
+from os.path import dirname, join, realpath
+
 import numpy as np
 from scipy import constants
+
+__all__ = ['get_elastic_energy', 'get_gem_efficiency']
 
 _m_e = constants.value('electron mass energy equivalent in MeV')
 _m_p = constants.value('proton mass energy equivalent in MeV')
@@ -20,3 +24,14 @@ def get_elastic_energy(e, theta, select):
         result = _m_e * (e + _m_e + (e - _m_e) * c**2)
         result /= e + _m_e - (e - _m_e) * c**2
     return result
+
+
+def get_gem_efficiency(theta, energy):
+    from ._tools import _get_gem_efficiency
+
+    path = join(dirname(realpath(__file__)), 'database')
+    l = np.load(join(path, 'gem_efficiency_{}.npz'.format(energy)))
+    hist = l['hist'].astype(np.float32)
+    edge = l['edge'].astype(np.float32) / 180 * np.pi
+
+    return _get_gem_efficiency(theta, hist, edge)

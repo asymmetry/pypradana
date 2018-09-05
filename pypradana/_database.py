@@ -105,7 +105,6 @@ class DB():
         self._load_hycal_offsets()
         self._load_s_shape_corrections()
         self._load_trigger_efficiency()
-        self._load_gem_efficiency()
 
     def _init_sim(self):
         self.target_center = -3000 + 89
@@ -223,12 +222,6 @@ class DB():
         for icid, *ipars in it:
             self.trigger_eff[icid] = (ipars[0], ipars[1], ipars[2])
         self.trigger_eff = self.trigger_eff.view(np.recarray)
-
-    def _load_gem_efficiency(self):
-        l = np.load(
-            join(self._path, 'gem_efficiency_{}.npz'.format(self.beam_type)))
-        self.gem_eff = l['hist'].astype(np.float32)
-        self.gem_eff_edge = l['edge'].astype(np.float32) / 180 * np.pi
 
     def find_modules(self, x, y):
         from ._tools import _find_modules

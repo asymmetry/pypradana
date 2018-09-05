@@ -387,12 +387,3 @@ class Data():
             result[1::2] = result[::2]
 
         return result
-
-    def get_gem_efficiency(self):
-        from ._tools import _get_gem_efficiency
-
-        return _get_gem_efficiency(
-            self.theta,
-            self.db.gem_eff,
-            self.db.gem_eff_edge,
-        )

@@ -3,6 +3,7 @@
 import argparse as ap
 import pickle
 import re
+from functools import reduce
 from os import listdir
 from os.path import join
 
@@ -43,8 +44,9 @@ range_e = args.range_e if args.range_e else [0, 10000]
 
 pattern_eb = re.compile(r'([12])gev')
 match_eb = re.search(pattern_eb, path_p)
+energy = match_eb.group(0)
 binning, temp = np.loadtxt(
-    'binning_{}.dat'.format(match_eb.group(0)),
+    'binning_{}.dat'.format(energy),
     usecols=(0, 1),
     unpack=True,
 )
@@ -68,7 +70,7 @@ def get_data(path, start, end):
     for run, file_ in files.items():
         db = DB(run)
         db.ep_e_cut = np.rec.fromrecords(
-            [(-4.0, 4.0), (-2.0, 2.0), (-2.0, 2.0)],
+            [(-4.0, 4.0), (-2.0, 4.0), (-2.0, 4.0)],
             dtype=[('min_', np.float32),
                    ('max_', np.float32)],
         )
@@ -105,13 +107,25 @@ def get_data(path, start, end):
 ep_p, ee_p, ch_p = get_data(path_p, *range_p)
 ep_e, ee_e, ch_e = get_data(path_e, *range_e)
 
-with open('data_hists.pkl', 'wb') as f:
+ep_p, ee_p, ch_p, ep_e, ee_e, ch_e = [
+    reduce(np.add, x.values()) for x in [ep_p, ee_p, ch_p, ep_e, ee_e, ch_e]
+]
+
+dep_p = np.sqrt(ep_p)
+dee_p = np.sqrt(ee_p)
+dep_e = np.sqrt(ep_e)
+dee_e = np.sqrt(ee_e)
+
+ep = ep_p - ep_e * ch_p / ch_e
+ee = ee_p - ee_e * ch_p / ch_e
+dep = np.sqrt(dep_p**2 + (dep_e * ch_p / ch_e)**2)
+dee = np.sqrt(dee_p**2 + (dee_e * ch_p / ch_e)**2)
+
+with open('data_hists_{}.pkl'.format(energy), 'wb') as f:
     save = {
-        'ep_p': ep_p,
-        'ee_p': ee_p,
-        'ch_p': ch_p,
-        'ep_e': ep_e,
-        'ee_e': ee_e,
-        'ch_e': ch_e,
+        'ep': ep,
+        'ee': ee,
+        'dep': dep,
+        'dee': dee,
     }
     pickle.dump(save, f)
