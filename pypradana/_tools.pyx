@@ -150,15 +150,24 @@ def _get_double_arm_cut(
     cdef long[:] result_view = result
 
     cdef Py_ssize_t i, j
+    cdef Py_ssize_t i_prev
     cdef long found_i, found_j
     cdef double elasticity, elasticity_cut_min, elasticity_cut_max
     cdef double d_phi
     cdef double vertex_z
     cdef double elasticity_save
 
+    i_prev = 0
+    found_i, found_j = -1, -1
     elasticity_save = 1e+6
     for i in range(data_length):
-        found_i, found_j = -1, -1
+        if event_number[i] != event_number[i_prev]:
+            if found_i != -1 and found_j != -1:
+                result_view[found_i] = 1
+                result_view[found_j] = 1
+            found_i, found_j = -1, -1
+            i_prev = i
+
         for j in range(i + 1, data_length):
             if event_number[i] != event_number[j]:
                 elasticity_save = 1e+6
@@ -185,10 +194,6 @@ def _get_double_arm_cut(
             if abs(elasticity / elasticity_cut_max) < elasticity_save:
                 found_i, found_j = i, j
                 elasticity_save = abs(elasticity)
-
-        if found_i != -1 and found_j != -1:
-            result_view[found_i] = 1
-            result_view[found_j] = 1
 
     return result
 

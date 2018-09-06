@@ -37,17 +37,17 @@ class DB():
         self.e_res = np.array([0.024, 0.062, 0.062], dtype=np.float32)
 
         self.e_total_cut = 4000 if self.beam_type == '1gev' else 16000
-        self.ep_e_cut = np.rec.fromrecords(
-            [(-4.0, 4.0), (-4.0, 4.0), (-4.0, 4.0)],
-            dtype=[('min_', np.float32),
-                   ('max_', np.float32)],
-        )
-        self.ee_e_cut = np.rec.fromrecords(
-            [(-4.0, 4.0), (-4.0, 4.0), (-4.0, 4.0)],
-            dtype=[('min_', np.float32),
-                   ('max_', np.float32)],
-        )
         if self.beam_type == '1gev':
+            self.ep_e_cut = np.rec.fromrecords(
+                [(-3.0, 3.0), (-3.0, 3.0), (-3.0, 3.0)],
+                dtype=[('min_', np.float32),
+                       ('max_', np.float32)],
+            )
+            self.ee_e_cut = np.rec.fromrecords(
+                [(-3.0, 3.0), (-3.0, 3.0), (-3.0, 3.0)],
+                dtype=[('min_', np.float32),
+                       ('max_', np.float32)],
+            )
             self.ee2_e_cut = np.rec.fromrecords(
                 [(-5.0, 5.0), (-5.0, 5.0), (-5.0, 5.0)],
                 dtype=[('min_', np.float32),
@@ -56,6 +56,16 @@ class DB():
             self.ep_theta_cut = 0.75 / 180 * np.pi
             self.ee_theta_cut = 0.75 / 180 * np.pi
         elif self.beam_type == '2gev':
+            self.ep_e_cut = np.rec.fromrecords(
+                [(-4.0, 4.0), (-4.0, 4.0), (-4.0, 4.0)],
+                dtype=[('min_', np.float32),
+                       ('max_', np.float32)],
+            )
+            self.ee_e_cut = np.rec.fromrecords(
+                [(-4.0, 4.0), (-4.0, 4.0), (-4.0, 4.0)],
+                dtype=[('min_', np.float32),
+                       ('max_', np.float32)],
+            )
             self.ee2_e_cut = np.rec.fromrecords(
                 [(-6.0, 6.0), (-6.0, 6.0), (-6.0, 6.0)],
                 dtype=[('min_', np.float32),

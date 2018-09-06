@@ -70,7 +70,7 @@ def get_data(path, start, end):
     for run, file_ in files.items():
         db = DB(run)
         db.ep_e_cut = np.rec.fromrecords(
-            [(-4.0, 4.0), (-2.0, 4.0), (-2.0, 4.0)],
+            [(-3.0, 3.0), (-3.0, 3.0), (-3.0, 3.0)],
             dtype=[('min_', np.float32),
                    ('max_', np.float32)],
         )
