@@ -351,8 +351,8 @@ class Data():
         e_elastic = get_elastic_energy(self.e_beam, self.theta0, 'electron')
         e_res = self.db.e_res[self.region]
         e_res = e_res * e_elastic / np.sqrt(e_elastic / 1000)
-        e_cut_min = self.db.ee2_e_cut.min_[self.region] * e_res
-        e_cut_max = self.db.ee2_e_cut.max_[self.region] * e_res
+        e_cut_min = self.db.ee_e_cut.min_[self.region] * e_res
+        e_cut_max = self.db.ee_e_cut.max_[self.region] * e_res
 
         r0 = np.sqrt(self.x0**2 + self.y0**2)
 

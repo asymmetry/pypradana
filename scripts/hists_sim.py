@@ -45,6 +45,11 @@ def get_data(t):
         dtype=[('min_', np.float32),
                ('max_', np.float32)],
     )
+    # db.ee_e_cut = np.rec.fromrecords(
+    #     [(-3.0, 3.0), (-3.0, 3.0), (-3.0, 3.0)],
+    #     dtype=[('min_', np.float32),
+    #            ('max_', np.float32)],
+    # )
     for run, file_ in files.items():
         sim_ep = SimFile(file_, database=db)
 
@@ -77,6 +82,11 @@ ep_ep, ee_ep, ep_ee, ee_ee, ep_in, ee_in = [
     for x in [ep_ep, ee_ep, ep_ee, ee_ee, ep_in, ee_in]
 ]
 
+# 1 gev
+lumi_ep = 0.789009635
+lumi_ee = 0.5
+lumi_in = 0.020668338 / 2 * 3
+# 2 gev
 lumi_ep = 0.903422618
 lumi_ee = 0.5
 lumi_in = 0.05636695

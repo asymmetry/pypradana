@@ -153,7 +153,7 @@ def _get_double_arm_cut(
     cdef Py_ssize_t i_prev
     cdef long found_i, found_j
     cdef double elasticity, elasticity_cut_min, elasticity_cut_max
-    cdef double d_phi
+    cdef double phi_b, d_phi
     cdef double vertex_z
     cdef double elasticity_save
 
@@ -180,9 +180,16 @@ def _get_double_arm_cut(
                     or elasticity > elasticity_cut_max):
                 continue
 
-            d_phi = phi[i] + np.pi - phi[j]
-            if d_phi > np.pi:
+            phi_b = phi[j] + np.pi
+            if phi_b >= np.pi:
+                phi_b -= 2 * np.pi
+            elif phi_b < -np.pi:
+                phi_b += 2 * np.pi
+            d_phi = phi[i] - phi_b
+            if d_phi >= np.pi:
                 d_phi -= 2 * np.pi
+            elif d_phi < -np.pi:
+                d_phi += 2 * np.pi
             if abs(d_phi) > coplanerity_cut:
                 continue
 
@@ -193,7 +200,7 @@ def _get_double_arm_cut(
 
             if abs(elasticity / elasticity_cut_max) < elasticity_save:
                 found_i, found_j = i, j
-                elasticity_save = abs(elasticity)
+                elasticity_save = abs(elasticity / elasticity_cut_max)
 
     return result
 
